@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Tarefas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .task-form {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-content {
+            flex-grow: 1;
+        }
+        .task-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .task-description {
+            color: #666;
+        }
+        .task-status {
+            font-size: 0.8em;
+            padding: 3px 6px;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+        .status-pending {
+            background-color: #ffcc00;
+        }
+        .status-completed {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .btn-delete {
+            background-color: #f44336;
+        }
+        .btn-complete {
+            background-color: #2196F3;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gerenciador de Tarefas</h1>
+    
+    <div class="task-form">
+        <h2>Nova Tarefa</h2>
+        <div class="form-group">
+            <label for="title">Título:</label>
+            <input type="text" id="title" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Descrição:</label>
+            <textarea id="description" rows="3"></textarea>
+        </div>
+        <button onclick="createTask()">Adicionar Tarefa</button>
+        <div id="form-error" class="error-message"></div>
+    </div>
+    
+    <h2>Minhas Tarefas</h2>
+    <ul id="task-list" class="task-list">
+    </ul>
+    <div id="list-error" class="error-message"></div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/tasks';
+        
+        async function loadTasks( ) {
+            try {
+                const response = await fetch(API_URL);
+                const tasks = await response.json();
+                
+                const taskList = document.getElementById('task-list');
+                taskList.innerHTML = '';
+                
+                tasks.forEach(task => {
+                    const taskItem = document.createElement('li');
+                    taskItem.className = 'task-item';
+                    taskItem.innerHTML = `
+                        <div class="task-content">
+                            <div class="task-title">${task.title}
+                                <span class="task-status ${task.completed ? 'status-completed' : 'status-pending'}">
+                                    ${task.completed ? 'Concluída' : 'Pendente'}
+                                </span>
+                            </div>
+                            <div class="task-description">${task.description}</div>
+                        </div>
+                        <div class="task-actions">
+                            ${!task.completed ? 
+                                `<button class="btn-complete" onclick="completeTask(${task.id})">Concluir</button>` : ''}
+                            <button class="btn-delete" onclick="deleteTask(${task.id})">Excluir</button>
+                        </div>
+                    `;
+                    taskList.appendChild(taskItem);
+                });
+                
+                document.getElementById('list-error').textContent = '';
+            } catch (error) {
+                document.getElementById('list-error').textContent = 'Erro ao carregar tarefas: ' + error.message;
+            }
+        }
+        
+        async function createTask() {
+            const title = document.getElementById('title').value.trim();
+            const description = document.getElementById('description').value.trim();
+            
+            if (!title) {
+                document.getElementById('form-error').textContent = 'O título é obrigatório';
+                return;
+            }
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title, description }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao criar tarefa');
+                }
+                
+                document.getElementById('title').value = '';
+                document.getElementById('description').value = '';
+                document.getElementById('form-error').textContent = '';
+                
+                loadTasks();
+            } catch (error) {
+                document.getElementById('form-error').textContent = 'Erro ao criar tarefa: ' + error.message;
+            }
+        }
+        
+        async function completeTask(id) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ completed: true }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao atualizar tarefa');
+                }
+                
+                loadTasks();
+            } catch (error) {
+                document.getElementById('list-error').textContent = 'Erro ao atualizar tarefa: ' + error.message;
+            }
+        }
+        
+        async function deleteTask(id) {
+            if (!confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE',
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao excluir tarefa');
+                }
+                
+                loadTasks();
+            } catch (error) {
+                document.getElementById('list-error').textContent = 'Erro ao excluir tarefa: ' + error.message;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadTasks);
+    </script>
+</body>
+</html>
